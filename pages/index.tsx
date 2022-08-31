@@ -2,10 +2,10 @@ import { Box, Center, Spacer, Stack } from "@chakra-ui/react"
 import type { NextPage } from "next"
 import Head from "next/head"
 import styles from "../styles/Home.module.css"
-import DisconnectedLayout from "../components/DisconnectedLayout"
+import Disconnected from "../components/Disconnected"
 import NavBar from "../components/NavBar"
 import { useWallet } from "@solana/wallet-adapter-react"
-import ConnectedLayout from "../components/ConnectedLayout"
+import Connected from "../components/Connected"
 
 const Home: NextPage = () => {
   const { connected } = useWallet()
@@ -28,9 +28,7 @@ const Home: NextPage = () => {
           <NavBar />
 
           <Spacer />
-          <Center>
-            {connected ? <ConnectedLayout /> : <DisconnectedLayout />}
-          </Center>
+          <Center>{connected ? <Connected /> : <Disconnected />}</Center>
           <Spacer />
 
           <Center>

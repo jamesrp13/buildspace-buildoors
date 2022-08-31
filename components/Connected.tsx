@@ -10,7 +10,7 @@ import {
 } from "@chakra-ui/react"
 import { ArrowForwardIcon } from "@chakra-ui/icons"
 
-const ConnectedLayout: FC = () => {
+const Connected: FC = () => {
   return (
     <VStack spacing={20}>
       <Container>
@@ -27,8 +27,8 @@ const ConnectedLayout: FC = () => {
 
           <Text color="bodyText" fontSize="xl" textAlign="center">
             Each buildoor is randomly generated and can be staked to receive
-            $BLD Use your $BLD to upgrade your buildoor and receive perks within
-            the community!
+            <Text as="b"> $BLD</Text> Use your <Text as="b"> $BLD</Text> to
+            upgrade your buildoor and receive perks within the community!
           </Text>
         </VStack>
       </Container>
@@ -51,4 +51,4 @@ const ConnectedLayout: FC = () => {
   )
 }
 
-export default ConnectedLayout
+export default Connected

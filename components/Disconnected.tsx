@@ -11,7 +11,7 @@ import { ArrowForwardIcon } from "@chakra-ui/icons"
 import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import { useWallet } from "@solana/wallet-adapter-react"
 
-const DisconnectedLayout: FC = () => {
+const Disconnected: FC = () => {
   const modalState = useWalletModal()
   const { wallet, connect } = useWallet()
 
@@ -58,4 +58,4 @@ const DisconnectedLayout: FC = () => {
   )
 }
 
-export default DisconnectedLayout
+export default Disconnected
