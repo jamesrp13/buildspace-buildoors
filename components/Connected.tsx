@@ -15,11 +15,7 @@ import {
   Metaplex,
   walletAdapterIdentity,
 } from "@metaplex-foundation/js"
-import { PublicKey } from "@solana/web3.js"
-
-const candyMachineAddress = new PublicKey(
-  "5sAHQFz9xhHwu7gioMmKgBcN4prdponx7EEHcSZyqys7"
-)
+import { candyMachineAddress } from "../utils/constants"
 
 const Connected: FC = () => {
   const { connection } = useConnection()
@@ -32,11 +28,11 @@ const Connected: FC = () => {
   const [page, setPage] = useState(1)
   const perPage = 3
 
+  // mint from candymachine
   const mint = async () => {
     if (!wallet.connected || !candyMachine) {
       return
     }
-    console.log("test")
 
     try {
       const nft = await metaplex.candyMachines().mint({ candyMachine }).run()
@@ -47,6 +43,7 @@ const Connected: FC = () => {
     }
   }
 
+  // fetch candymachine
   const fetchCandyMachine = async () => {
     const candyMachine = await metaplex
       .candyMachines()
@@ -59,6 +56,7 @@ const Connected: FC = () => {
     setTotalItems(candyMachine.items.length)
   }
 
+  // display candymachine NFT images for current page
   const getPage = async (page: number, perPage: number) => {
     if (candyMachine) {
       const pageItems = candyMachine.items.slice(
@@ -77,10 +75,6 @@ const Connected: FC = () => {
     }
   }
 
-  useEffect(() => {
-    fetchCandyMachine()
-  }, [])
-
   // previous page
   const prev = async () => {
     if (page - 1 < 1) {
@@ -97,9 +91,15 @@ const Connected: FC = () => {
     }
   }
 
+  // paging
   useEffect(() => {
     getPage(page, perPage)
   }, [candyMachine, page])
+
+  // fetch candymachine
+  useEffect(() => {
+    fetchCandyMachine()
+  }, [])
 
   return (
     <VStack spacing={20}>
@@ -140,14 +140,6 @@ const Connected: FC = () => {
           <ArrowForwardIcon />
         </Button>
       </HStack>
-
-      {/* <HStack spacing={10}>
-        <Image src="avatar1.png" alt="" />
-        <Image src="avatar2.png" alt="" />
-        <Image src="avatar3.png" alt="" />
-        <Image src="avatar4.png" alt="" />
-        <Image src="avatar5.png" alt="" />
-      </HStack> */}
 
       <Button bgColor="accent" color="white" maxW="380px" onClick={mint}>
         <HStack>

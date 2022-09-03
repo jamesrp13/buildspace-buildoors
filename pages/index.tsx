@@ -6,6 +6,7 @@ import Disconnected from "../components/Disconnected"
 import NavBar from "../components/NavBar"
 import { useWallet } from "@solana/wallet-adapter-react"
 import Connected from "../components/Connected"
+import DisplayNFT from "../components/DisplayNFT"
 
 const Home: NextPage = () => {
   const { connected } = useWallet()
@@ -29,6 +30,10 @@ const Home: NextPage = () => {
 
           <Spacer />
           <Center>{connected ? <Connected /> : <Disconnected />}</Center>
+          <Spacer />
+
+          <Spacer />
+          <Center>{connected ? <DisplayNFT /> : <></>} </Center>
           <Spacer />
 
           <Center>
