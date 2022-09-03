@@ -128,7 +128,13 @@ const Connected: FC = () => {
           <ArrowBackIcon />
         </Button>
         {pageItems?.map((nft) => (
-          <Image borderRadius="md" boxSize="250px" src={nft.image} alt="" />
+          <Image
+            key={nft.address}
+            borderRadius="md"
+            boxSize="250px"
+            src={nft.image}
+            alt=""
+          />
         ))}
         <Button bgColor="accent" color="white" maxW="380px" onClick={next}>
           <ArrowForwardIcon />
