@@ -1,0 +1,24 @@
+{
+  "name": "Happy Hannah",
+  "symbol": "BLDR",
+  "description": "Just a bunch of buildoors buildooring.",
+  "image": "2.png",
+  "attributes": [
+    {
+      "trait_type": "Happy",
+      "value": "yes"
+    },
+    {
+      "trait_type": "Buildoor",
+      "value": "absolutely"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "2.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}

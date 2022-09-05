@@ -1,0 +1,24 @@
+{
+  "name": "Mr. Cool",
+  "symbol": "BLDR",
+  "description": "Just a bunch of buildoors buildooring.",
+  "image": "0.png",
+  "attributes": [
+    {
+      "trait_type": "Sunglasses",
+      "value": "yes"
+    },
+    {
+      "trait_type": "Buildoor",
+      "value": "absolutely"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "0.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}
