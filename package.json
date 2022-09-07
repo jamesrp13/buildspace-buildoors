@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "create-bld-token": "ts-node tokens/bld/index.ts"
+    "create-bld-token": "ts-node tokens/bld/index.ts",
+    "reset-candy-machine": "rm tokens/candy-machine/cache.json && cd tokens/candy-machine && sugar launch"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.0.9",

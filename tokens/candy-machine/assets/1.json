@@ -1,0 +1,28 @@
+{
+  "name": "Mischief Embodied",
+  "symbol": "BLDR",
+  "description": "Just a bunch of buildoors buildooring.",
+  "image": "1.png",
+  "attributes": [
+    {
+      "trait_type": "Horns",
+      "value": "yes"
+    },
+    {
+      "trait_type": "Buildoor",
+      "value": "absolutely"
+    },
+    {
+      "trait_type": "Trustworthy",
+      "value": "probably not"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "1.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}

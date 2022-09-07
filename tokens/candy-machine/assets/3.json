@@ -1,0 +1,24 @@
+{
+  "name": "Bowow",
+  "symbol": "BLDR",
+  "description": "Just a bunch of buildoors buildooring.",
+  "image": "3.png",
+  "attributes": [
+    {
+      "trait_type": "Bow",
+      "value": "yes"
+    },
+    {
+      "trait_type": "Buildoor",
+      "value": "absolutely"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "3.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}
