@@ -1,4 +1,11 @@
-import { FC } from "react"
+import {
+  FC,
+  MouseEventHandler,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react"
 import {
   Button,
   Container,
@@ -9,8 +16,64 @@ import {
   Image,
 } from "@chakra-ui/react"
 import { ArrowForwardIcon } from "@chakra-ui/icons"
+import { useConnection, useWallet } from "@solana/wallet-adapter-react"
+import {
+  Metaplex,
+  walletAdapterIdentity,
+  CandyMachine,
+} from "@metaplex-foundation/js"
+import { PublicKey } from "@solana/web3.js"
+import { useRouter } from "next/router"
 
 const Connected: FC = () => {
+  const { connection } = useConnection()
+  const walletAdapter = useWallet()
+  const [candyMachine, setCandyMachine] = useState<CandyMachine>()
+
+  const metaplex = useMemo(() => {
+    return Metaplex.make(connection).use(walletAdapterIdentity(walletAdapter))
+  }, [connection, walletAdapter])
+
+  useEffect(() => {
+    metaplex
+      .candyMachines()
+      .findByAddress({
+        address: new PublicKey("7vvncjgVsGhcBDhGCwzFhn4SkzCkjG3J8aU3etMGJxah"),
+      })
+      .run()
+      .then((candyMachine) => {
+        console.log(candyMachine)
+        setCandyMachine(candyMachine)
+      })
+      .catch((error) => {
+        alert(error)
+      })
+  }, [metaplex])
+
+  const router = useRouter()
+
+  const handleClick: MouseEventHandler<HTMLButtonElement> = useCallback(
+    async (event) => {
+      if (event.defaultPrevented) return
+
+      if (!walletAdapter.connected || !candyMachine) {
+        console.log(walletAdapter.connected)
+        console.log(candyMachine)
+        return
+      }
+
+      try {
+        const nft = await metaplex.candyMachines().mint({ candyMachine }).run()
+        console.log(nft)
+        router.push(`/newMint?mint=${nft.nft.address.toBase58()}`)
+      } catch (e) {
+        console.log(e)
+        alert(e)
+      }
+    },
+    [metaplex, candyMachine]
+  )
+
   return (
     <VStack spacing={20}>
       <Container>
@@ -41,7 +104,7 @@ const Connected: FC = () => {
         <Image src="avatar5.png" alt="" />
       </HStack>
 
-      <Button bgColor="accent" color="white" maxW="380px">
+      <Button bgColor="accent" color="white" maxW="380px" onClick={handleClick}>
         <HStack>
           <Text>mint buildoor</Text>
           <ArrowForwardIcon />
