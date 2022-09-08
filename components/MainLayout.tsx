@@ -1,12 +1,12 @@
-import { Box, Center, Spacer, Stack } from "@chakra-ui/react"
+import { FC, ReactNode } from "react"
 import Head from "next/head"
 import styles from "../styles/Home.module.css"
+import { Box, Center, Spacer, Stack } from "@chakra-ui/react"
+import NavBar from "../components/NavBar"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { FC, ReactNode, useEffect } from "react"
-import NavBar from "./NavBar"
 
 const MainLayout: FC<{ children: ReactNode }> = ({ children }) => {
-  const walletAdapter = useWallet()
+  const { connected } = useWallet()
 
   return (
     <div className={styles.container}>
@@ -19,14 +19,16 @@ const MainLayout: FC<{ children: ReactNode }> = ({ children }) => {
       <Box
         w="full"
         h="calc(100vh)"
-        bgImage={walletAdapter.connected ? "" : "url(/home-background.svg)"}
+        bgImage={connected ? "" : "url(/home-background.svg)"}
         backgroundPosition="center"
       >
         <Stack w="full" h="calc(100vh)" justify="center">
           <NavBar />
 
           <Spacer />
+
           <Center>{children}</Center>
+
           <Spacer />
 
           <Center>
@@ -36,7 +38,7 @@ const MainLayout: FC<{ children: ReactNode }> = ({ children }) => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                built with @_buildspace
+                build with @_buildspace
               </a>
             </Box>
           </Center>
