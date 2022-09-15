@@ -5,7 +5,11 @@ import { Box, Center, Spacer, Stack } from "@chakra-ui/react"
 import NavBar from "../components/NavBar"
 import { useWallet } from "@solana/wallet-adapter-react"
 
-const MainLayout: FC<{ children: ReactNode }> = ({ children }) => {
+const MainLayout: FC<{
+  children: ReactNode
+  centered?: boolean
+  topAlign?: boolean
+}> = ({ children, centered, topAlign }) => {
   const { connected } = useWallet()
 
   return (
@@ -25,9 +29,9 @@ const MainLayout: FC<{ children: ReactNode }> = ({ children }) => {
         <Stack w="full" h="calc(100vh)" justify="center">
           <NavBar />
 
-          <Spacer />
+          {!topAlign && <Spacer />}
 
-          <Center>{children}</Center>
+          {centered ? <Center>{children}</Center> : children}
 
           <Spacer />
 

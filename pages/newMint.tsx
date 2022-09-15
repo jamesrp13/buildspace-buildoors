@@ -1,4 +1,5 @@
 import type { NextPage } from "next"
+import { useRouter } from "next/router"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import MainLayout from "../components/MainLayout"
 import {
@@ -28,6 +29,7 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
   const metaplex = useMemo(() => {
     return Metaplex.make(connection).use(walletAdapterIdentity(walletAdapter))
   }, [connection, walletAdapter])
+  const router = useRouter()
 
   useEffect(() => {
     metaplex
@@ -38,14 +40,17 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
         fetch(nft.uri)
           .then((res) => res.json())
           .then((metadata) => {
+            console.log(metadata)
             setMetadata(metadata)
           })
       })
   }, [mint, metaplex, walletAdapter])
 
   const handleClick: MouseEventHandler<HTMLButtonElement> = useCallback(
-    async (event) => {},
-    []
+    async (event) => {
+      router.push(`/stake?mint=${mint}&imageSrc=${metadata?.image}`)
+    },
+    [router, mint, metadata]
   )
 
   return (
