@@ -72,6 +72,7 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
   const { publicKey, sendTransaction } = useWallet()
   const walletAdapter = useWallet()
 
+  // metaplex setup
   const metaplex = useMemo(() => {
     return Metaplex.make(connection).use(walletAdapterIdentity(walletAdapter))
   }, [connection, walletAdapter])
@@ -79,6 +80,7 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
   // stake instruction
   const handleStake = async () => {
     if (publicKey && tokenAccountAddress) {
+      // create stake instruction
       const stakeInstruction = createStakeInstruction(
         publicKey,
         tokenAccountAddress,
@@ -86,7 +88,10 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
         nftData.edition.address
       )
 
+      // add instruction to transaction
       const transaction = new Transaction().add(stakeInstruction)
+
+      // helper function to send and confirm transaction
       sendAndConfirmTransaction(transaction)
     }
   }
@@ -96,11 +101,13 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
     if (publicKey && tokenAccountAddress) {
       const transaction = new Transaction()
 
+      // get stake rewards token address
       const stakeRewardTokenAddress = await getAssociatedTokenAddress(
         STAKE_MINT,
         publicKey
       )
 
+      // create token account instruction
       const createTokenAccountInstruction =
         createAssociatedTokenAccountInstruction(
           publicKey, // payer
@@ -129,6 +136,7 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
         }
       }
 
+      // unstake instruction
       const unstakeInstruction = createUnstakeInstruction(
         publicKey,
         tokenAccountAddress,
@@ -137,8 +145,10 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
         stakeRewardTokenAddress
       )
 
+      // add instruction to transaction
       transaction.add(unstakeInstruction)
 
+      // helper function to send and confirm transaction
       sendAndConfirmTransaction(transaction)
     }
   }
@@ -148,11 +158,13 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
     if (publicKey && tokenAccountAddress) {
       const transaction = new Transaction()
 
+      // get stake rewards token address
       const stakeRewardTokenAddress = await getAssociatedTokenAddress(
         STAKE_MINT,
         publicKey
       )
 
+      // create token account instruction
       const createTokenAccountInstruction =
         createAssociatedTokenAccountInstruction(
           publicKey, // payer
@@ -181,13 +193,17 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
         }
       }
 
+      // redeem instruction
       const redeemInstruction = createRedeemInstruction(
         publicKey,
         tokenAccountAddress,
         stakeRewardTokenAddress
       )
 
+      // add transaction to instruction
       transaction.add(redeemInstruction)
+
+      // helper function to send and confirm transaction
       sendAndConfirmTransaction(transaction)
     }
   }
@@ -205,8 +221,7 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
       onOpen()
 
       // wait for transaction confirmation
-      // using "finalized" otherwise switching between staking / unstaking sometimes doesn't work
-      // and redeem amount not correct
+      // using "finalized" otherwise switching between staking / unstaking sometimes doesn't work and redeem amount not updated correctly
       const latestBlockHash = await connection.getLatestBlockhash()
       await connection.confirmTransaction(
         {
@@ -224,7 +239,7 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
         `https://explorer.solana.com/tx/${transactionSignature}?cluster=devnet`
       )
 
-      // check status of stateState to determines which buttons to display
+      // check status of stateState
       checkStakeStatus()
     } catch (error) {}
   }
@@ -248,8 +263,8 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
 
   // check stake status of NFT
   const checkStakeStatus = async () => {
-    console.log("test")
     if (publicKey && tokenAccountAddress) {
+      // helper function to deserialize stake account
       const stakeAccount = await getStakeAccount(
         connection,
         publicKey,
@@ -263,7 +278,6 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
       } else {
         setIsStaking(false)
       }
-      console.log(stakeAccount.lastStakeRedeem)
     }
   }
 

@@ -31,30 +31,25 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
   const { connection } = useConnection()
   const walletAdapter = useWallet()
   const { publicKey, sendTransaction } = useWallet()
+
+  // metaplex setup
   const metaplex = useMemo(() => {
     return Metaplex.make(connection).use(walletAdapterIdentity(walletAdapter))
   }, [connection, walletAdapter])
   const router = useRouter()
 
-  useEffect(() => {
-    metaplex
-      .nfts()
-      .findByMint({ mintAddress: mint })
-      .run()
-      .then((nft) => {
-        setNftData(nft)
-      })
-  }, [mint, metaplex, walletAdapter])
-
-  const handleClick: MouseEventHandler<HTMLButtonElement> = useCallback(
-    async (event) => {
+  const handleClick: MouseEventHandler<HTMLButtonElement> =
+    useCallback(async () => {
       if (publicKey) {
+        // get token account of NFT
         const tokenAccount = (await connection.getTokenLargestAccounts(mint))
           .value[0].address
 
+        // helper function to create initialize stake account instruction
         const initializeStakeAccountInstruction =
           createInitializeStakeAccountInstruction(publicKey, tokenAccount)
 
+        // helper functin to create stake instruction
         const stakeInstruction = createStakeInstruction(
           publicKey,
           tokenAccount,
@@ -62,17 +57,20 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
           nftData.edition.address
         )
 
+        // add instructions to new transaction
         const transaction = new Transaction().add(
           initializeStakeAccountInstruction,
           stakeInstruction
         )
 
+        // send transactions
         try {
           const transactionSignature = await sendTransaction(
             transaction,
             connection
           )
 
+          // wait for confirmation
           const latestBlockHash = await connection.getLatestBlockhash()
           await connection.confirmTransaction({
             blockhash: latestBlockHash.blockhash,
@@ -84,14 +82,23 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
             `https://explorer.solana.com/tx/${transactionSignature}?cluster=devnet`
           )
 
+          // push to new page
           router.push(`/stake?mint=${mint}&imageSrc=${nftData?.json.image}`)
         } catch (error) {
           alert(error)
         }
       }
-    },
-    [router, mint, nftData]
-  )
+    }, [router, mint, nftData])
+
+  useEffect(() => {
+    metaplex
+      .nfts()
+      .findByMint({ mintAddress: mint })
+      .run()
+      .then((nft) => {
+        setNftData(nft)
+      })
+  }, [mint, metaplex])
 
   return (
     <MainLayout>
