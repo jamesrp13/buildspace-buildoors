@@ -1,4 +1,4 @@
-import { ReactNode } from "react"
+import { ReactNode, useEffect, useState, useMemo, useCallback } from "react"
 import type { NextPage } from "next"
 import MainLayout from "../components/MainLayout"
 import {
@@ -10,9 +10,34 @@ import {
   Button,
   HStack,
   Flex,
-  Container,
+  Spinner,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure,
 } from "@chakra-ui/react"
-import { PublicKey } from "@solana/web3.js"
+import { PublicKey, Transaction } from "@solana/web3.js"
+import {
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  getAccount,
+  TokenAccountNotFoundError,
+  TokenInvalidAccountOwnerError,
+} from "@solana/spl-token"
+import { useConnection, useWallet } from "@solana/wallet-adapter-react"
+import { getStakeAccount } from "../utils/accounts"
+import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
+import {
+  createStakeInstruction,
+  createUnstakeInstruction,
+  createRedeemInstruction,
+} from "../utils/instructions"
+import { STAKE_MINT } from "../utils/constants"
+
+// unused metaplex context
 import { useMetaplexConnection } from "../components/MetaplexProvider"
 
 const ItemBox = ({
@@ -34,19 +59,262 @@ const ItemBox = ({
   )
 }
 
-const Stake: NextPage<StakeProps> = ({
-  mint,
-  totalEarned,
-  claimable,
-  imageSrc,
-  isStaking,
-  level,
-  daysStaked,
-}) => {
-  const connection = useMetaplexConnection()
+const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
+  const [nftData, setNftData] = useState<any>()
+  const [tokenAccountAddress, setTokenAccountAddress] = useState<PublicKey>()
+  const [stakeState, setStakeState] = useState<any>()
+  const [isStaking, setIsStaking] = useState(false)
+  const [stakeRewards, setStakeRewards] = useState(0)
+  const [stakeTime, setStakeTime] = useState(String)
+  const { isOpen, onOpen, onClose } = useDisclosure()
 
-  const handleClaim = () => {}
-  const handleStake = () => {}
+  const { connection } = useConnection()
+  const { publicKey, sendTransaction } = useWallet()
+  const walletAdapter = useWallet()
+
+  const metaplex = useMemo(() => {
+    return Metaplex.make(connection).use(walletAdapterIdentity(walletAdapter))
+  }, [connection, walletAdapter])
+
+  // stake instruction
+  const handleStake = async () => {
+    if (publicKey && tokenAccountAddress) {
+      const stakeInstruction = createStakeInstruction(
+        publicKey,
+        tokenAccountAddress,
+        nftData.mint.address,
+        nftData.edition.address
+      )
+
+      const transaction = new Transaction().add(stakeInstruction)
+      sendAndConfirmTransaction(transaction)
+    }
+  }
+
+  // unstake instruction
+  const handleUnstake = async () => {
+    if (publicKey && tokenAccountAddress) {
+      const transaction = new Transaction()
+
+      const stakeRewardTokenAddress = await getAssociatedTokenAddress(
+        STAKE_MINT,
+        publicKey
+      )
+
+      const createTokenAccountInstruction =
+        createAssociatedTokenAccountInstruction(
+          publicKey, // payer
+          stakeRewardTokenAddress, // token address
+          publicKey, // token owner
+          STAKE_MINT // token mint
+        )
+
+      try {
+        // check if token account already exists
+        await getAccount(
+          connection, // connection
+          stakeRewardTokenAddress // token address
+        )
+      } catch (error: unknown) {
+        if (
+          error instanceof TokenAccountNotFoundError ||
+          error instanceof TokenInvalidAccountOwnerError
+        ) {
+          try {
+            // add instruction to create token account if one does not exist
+            transaction.add(createTokenAccountInstruction)
+          } catch (error: unknown) {}
+        } else {
+          throw error
+        }
+      }
+
+      const unstakeInstruction = createUnstakeInstruction(
+        publicKey,
+        tokenAccountAddress,
+        nftData.mint.address,
+        nftData.edition.address,
+        stakeRewardTokenAddress
+      )
+
+      transaction.add(unstakeInstruction)
+
+      sendAndConfirmTransaction(transaction)
+    }
+  }
+
+  // redeem instruction
+  const handleRedeem = async () => {
+    if (publicKey && tokenAccountAddress) {
+      const transaction = new Transaction()
+
+      const stakeRewardTokenAddress = await getAssociatedTokenAddress(
+        STAKE_MINT,
+        publicKey
+      )
+
+      const createTokenAccountInstruction =
+        createAssociatedTokenAccountInstruction(
+          publicKey, // payer
+          stakeRewardTokenAddress, // token address
+          publicKey, // token owner
+          STAKE_MINT // token mint
+        )
+
+      try {
+        // check if token account already exists
+        await getAccount(
+          connection, // connection
+          stakeRewardTokenAddress // token address
+        )
+      } catch (error: unknown) {
+        if (
+          error instanceof TokenAccountNotFoundError ||
+          error instanceof TokenInvalidAccountOwnerError
+        ) {
+          try {
+            // add instruction to create token account if one does not exist
+            transaction.add(createTokenAccountInstruction)
+          } catch (error: unknown) {}
+        } else {
+          throw error
+        }
+      }
+
+      const redeemInstruction = createRedeemInstruction(
+        publicKey,
+        tokenAccountAddress,
+        stakeRewardTokenAddress
+      )
+
+      transaction.add(redeemInstruction)
+      sendAndConfirmTransaction(transaction)
+    }
+  }
+
+  // helper function to send and confirm transaction
+  const sendAndConfirmTransaction = async (transaction: Transaction) => {
+    try {
+      // send transaction
+      const transactionSignature = await sendTransaction(
+        transaction,
+        connection
+      )
+
+      // open loading modal
+      onOpen()
+
+      // wait for transaction confirmation
+      // using "finalized" otherwise switching between staking / unstaking sometimes doesn't work
+      // and redeem amount not correct
+      const latestBlockHash = await connection.getLatestBlockhash()
+      await connection.confirmTransaction(
+        {
+          blockhash: latestBlockHash.blockhash,
+          lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+          signature: transactionSignature,
+        },
+        "finalized"
+      )
+
+      // close loading modal once transaction confirmation finalized
+      onClose()
+
+      console.log(
+        `https://explorer.solana.com/tx/${transactionSignature}?cluster=devnet`
+      )
+
+      // check status of stateState to determines which buttons to display
+      checkStakeStatus()
+    } catch (error) {}
+  }
+
+  // fetch NFT data
+  const fetchNft = async () => {
+    metaplex
+      .nfts()
+      .findByMint({ mintAddress: new PublicKey(mint) })
+      .run()
+      .then((nft) => {
+        setNftData(nft)
+      })
+
+    const tokenAccount = (
+      await connection.getTokenLargestAccounts(new PublicKey(mint))
+    ).value[0].address
+
+    setTokenAccountAddress(tokenAccount)
+  }
+
+  // check stake status of NFT
+  const checkStakeStatus = async () => {
+    console.log("test")
+    if (publicKey && tokenAccountAddress) {
+      const stakeAccount = await getStakeAccount(
+        connection,
+        publicKey,
+        tokenAccountAddress
+      )
+
+      setStakeState(stakeAccount)
+
+      if (stakeAccount.stakeState == 0) {
+        setIsStaking(true)
+      } else {
+        setIsStaking(false)
+      }
+      console.log(stakeAccount.lastStakeRedeem)
+    }
+  }
+
+  // calculate stake rewards
+  const checkStakeRewards = async () => {
+    if (stakeState) {
+      // get current solana clock time
+      const slot = await connection.getSlot({ commitment: "confirmed" })
+      const timestamp = await connection.getBlockTime(slot)
+      const rewards = timestamp! - stakeState.lastStakeRedeem.toNumber()
+      const duration = timestamp! - stakeState.stakeStartTime.toNumber()
+      convert(duration)
+
+      // calculate accumulated staking rewards
+      setStakeRewards(rewards)
+    }
+  }
+
+  // convert total time staked to string for display
+  const convert = async (time: number) => {
+    setStakeTime(
+      Math.floor(time / 24 / 60) +
+        " HR : " +
+        Math.floor((time / 60) % 24) +
+        " MIN : " +
+        Math.floor(time % 60) +
+        " SEC "
+    )
+  }
+
+  // fetch NFT data
+  useEffect(() => {
+    fetchNft()
+  }, [mint])
+
+  // check stake status
+  useEffect(() => {
+    checkStakeStatus()
+  }, [tokenAccountAddress])
+
+  // check stake rewards
+  useEffect(() => {
+    if (isStaking) {
+      const interval = setInterval(() => {
+        checkStakeRewards()
+      }, 1000)
+      return () => clearInterval(interval)
+    } else {
+      setStakeRewards(0)
+    }
+  }, [isStaking, stakeState])
 
   return (
     <MainLayout centered={false} topAlign={true}>
@@ -60,8 +328,8 @@ const Stake: NextPage<StakeProps> = ({
           Level up your buildoor
         </Heading>
         <Text color="bodyText" fontSize="xl" textAlign="start" maxWidth="600px">
-          Stake your buildoor to earn 10 $BLD per day to get access to a
-          randomized loot box full of upgrades for your buildoor
+          Stake your buildoor to earn $BLD and get access to a randomized loot
+          box full of upgrades for your buildoor
         </Text>
         <HStack spacing={20} alignItems="flex-start">
           <VStack align="flex-start" minWidth="200px">
@@ -104,27 +372,33 @@ const Stake: NextPage<StakeProps> = ({
                 as="b"
                 fontSize="sm"
               >
-                {isStaking
-                  ? `STAKING ${daysStaked} DAY${daysStaked === 1 ? "" : "S"}`
-                  : "READY TO STAKE"}
+                {isStaking ? `${stakeTime}` : "READY TO STAKE"}
               </Text>
               <VStack spacing={-1}>
                 <Text color="white" as="b" fontSize="4xl">
-                  {isStaking ? `${totalEarned} $BLD` : "0 $BLD"}
-                </Text>
-                <Text color="bodyText">
-                  {isStaking
-                    ? `${claimable} $BLD earned`
-                    : "earn $BLD by staking"}
+                  {isStaking ? `${stakeRewards} $BLD` : "0 $BLD"}
                 </Text>
               </VStack>
+              {isStaking ? (
+                <Button
+                  onClick={handleRedeem}
+                  bgColor="buttonGreen"
+                  width="200px"
+                >
+                  <Text as="b">Redeem $BLD</Text>
+                </Button>
+              ) : (
+                <Text color="bodyText" as="b">
+                  Earn $BLD by Staking
+                </Text>
+              )}
               <Button
-                onClick={isStaking ? handleClaim : handleStake}
+                onClick={isStaking ? handleUnstake : handleStake}
                 bgColor="buttonGreen"
                 width="200px"
               >
                 <Text as="b">
-                  {isStaking ? "claim $BLD" : "stake buildoor"}
+                  {isStaking ? "Unstake buildoor" : "Stake buildoor"}
                 </Text>
               </Button>
             </VStack>
@@ -152,18 +426,32 @@ const Stake: NextPage<StakeProps> = ({
           </VStack>
         </HStack>
       </VStack>
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent width="275px" height="150px">
+          <ModalHeader>Waiting Confirmation</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Center>
+              <Spinner
+                thickness="10px"
+                speed="1.5s"
+                emptyColor="gray.200"
+                color="blue.500"
+                size="xl"
+              />
+            </Center>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </MainLayout>
   )
 }
 
 interface StakeProps {
   mint: PublicKey
-  isStaking: boolean
-  totalEarned: number
-  claimable: number
   imageSrc: string
   level: number
-  daysStaked: number
 }
 
 Stake.getInitialProps = async ({ query }: any) => {
@@ -175,11 +463,7 @@ Stake.getInitialProps = async ({ query }: any) => {
     const mintPubkey = new PublicKey(mint)
     return {
       mint: mintPubkey,
-      totalEarned: 420,
-      claimable: 69,
-      isStaking: true,
       level: 1,
-      daysStaked: 4,
       imageSrc,
     }
   } catch {

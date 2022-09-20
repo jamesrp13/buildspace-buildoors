@@ -13,6 +13,7 @@ import {
   DataV2,
   createCreateMetadataAccountV2Instruction,
 } from "@metaplex-foundation/mpl-token-metadata"
+import { PROGRAM_ID } from "../../utils/constants"
 
 const tokenName = "BUILD"
 const tokenSymbol = "BLD"
@@ -89,6 +90,21 @@ async function createBldToken(
     connection,
     transaction,
     [payer]
+  )
+
+  const [mintAuth] = await web3.PublicKey.findProgramAddress(
+    [Buffer.from("mint")],
+    PROGRAM_ID
+  )
+
+  console.log("Updating Mint Authority")
+  await token.setAuthority(
+    connection,
+    payer,
+    tokenMint,
+    payer.publicKey,
+    token.AuthorityType.MintTokens,
+    mintAuth
   )
 
   fs.writeFileSync(

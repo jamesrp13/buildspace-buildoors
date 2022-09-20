@@ -19,13 +19,18 @@ import {
   useState,
 } from "react"
 import { ArrowForwardIcon } from "@chakra-ui/icons"
-import { PublicKey } from "@solana/web3.js"
+import { PublicKey, Transaction } from "@solana/web3.js"
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
+import {
+  createInitializeStakeAccountInstruction,
+  createStakeInstruction,
+} from "../utils/instructions"
 
 const NewMint: NextPage<NewMintProps> = ({ mint }) => {
-  const [metadata, setMetadata] = useState<any>()
+  const [nftData, setNftData] = useState<any>()
   const { connection } = useConnection()
   const walletAdapter = useWallet()
+  const { publicKey, sendTransaction } = useWallet()
   const metaplex = useMemo(() => {
     return Metaplex.make(connection).use(walletAdapterIdentity(walletAdapter))
   }, [connection, walletAdapter])
@@ -37,20 +42,55 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
       .findByMint({ mintAddress: mint })
       .run()
       .then((nft) => {
-        fetch(nft.uri)
-          .then((res) => res.json())
-          .then((metadata) => {
-            console.log(metadata)
-            setMetadata(metadata)
-          })
+        setNftData(nft)
       })
   }, [mint, metaplex, walletAdapter])
 
   const handleClick: MouseEventHandler<HTMLButtonElement> = useCallback(
     async (event) => {
-      router.push(`/stake?mint=${mint}&imageSrc=${metadata?.image}`)
+      if (publicKey) {
+        const tokenAccount = (await connection.getTokenLargestAccounts(mint))
+          .value[0].address
+
+        const initializeStakeAccountInstruction =
+          createInitializeStakeAccountInstruction(publicKey, tokenAccount)
+
+        const stakeInstruction = createStakeInstruction(
+          publicKey,
+          tokenAccount,
+          nftData.mint.address,
+          nftData.edition.address
+        )
+
+        const transaction = new Transaction().add(
+          initializeStakeAccountInstruction,
+          stakeInstruction
+        )
+
+        try {
+          const transactionSignature = await sendTransaction(
+            transaction,
+            connection
+          )
+
+          const latestBlockHash = await connection.getLatestBlockhash()
+          await connection.confirmTransaction({
+            blockhash: latestBlockHash.blockhash,
+            lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+            signature: transactionSignature,
+          })
+
+          console.log(
+            `https://explorer.solana.com/tx/${transactionSignature}?cluster=devnet`
+          )
+
+          router.push(`/stake?mint=${mint}&imageSrc=${nftData?.json.image}`)
+        } catch (error) {
+          alert(error)
+        }
+      }
     },
-    [router, mint, metadata]
+    [router, mint, nftData]
   )
 
   return (
@@ -69,7 +109,7 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
           </VStack>
         </Container>
 
-        <Image src={metadata?.image ?? ""} alt="" />
+        <Image src={nftData?.json.image ?? ""} alt="" />
 
         <Button
           bgColor="accent"
