@@ -19,18 +19,19 @@ import {
   useState,
 } from "react"
 import { ArrowForwardIcon } from "@chakra-ui/icons"
-import { PublicKey, Transaction } from "@solana/web3.js"
+import { PublicKey } from "@solana/web3.js"
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
-import {
-  createInitializeStakeAccountInstruction,
-  createStakeInstruction,
-} from "../utils/instructions"
+import { PROGRAM_ID as METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata"
+import { useWorkspace } from "../context/Anchor"
 
 const NewMint: NextPage<NewMintProps> = ({ mint }) => {
   const [nftData, setNftData] = useState<any>()
+  const [isStaking, setIsStaking] = useState(false)
   const { connection } = useConnection()
   const walletAdapter = useWallet()
-  const { publicKey, sendTransaction } = useWallet()
+  const { sendTransaction } = useWallet()
+  const workspace = useWorkspace()
+  const program = workspace.program
 
   // metaplex setup
   const metaplex = useMemo(() => {
@@ -40,37 +41,32 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
 
   const handleClick: MouseEventHandler<HTMLButtonElement> =
     useCallback(async () => {
-      if (publicKey) {
+      if (program) {
         // get token account of NFT
         const tokenAccount = (await connection.getTokenLargestAccounts(mint))
           .value[0].address
 
-        // helper function to create initialize stake account instruction
-        const initializeStakeAccountInstruction =
-          createInitializeStakeAccountInstruction(publicKey, tokenAccount)
+        // create stake transaction
+        const transaction = await program.methods
+          .stake()
+          .accounts({
+            nftTokenAccount: tokenAccount,
+            nftMint: mint,
+            nftEdition: nftData.edition.address,
+            metadataProgram: METADATA_PROGRAM_ID,
+          })
+          .transaction()
 
-        // helper functin to create stake instruction
-        const stakeInstruction = createStakeInstruction(
-          publicKey,
-          tokenAccount,
-          nftData.mint.address,
-          nftData.edition.address
-        )
-
-        // add instructions to new transaction
-        const transaction = new Transaction().add(
-          initializeStakeAccountInstruction,
-          stakeInstruction
-        )
-
-        // send transactions
         try {
+          setIsStaking(true)
+
+          // send transaction
           const transactionSignature = await sendTransaction(
             transaction,
             connection
           )
 
-          // wait for confirmation
+          // wait for transaction confirmation
           const latestBlockHash = await connection.getLatestBlockhash()
           await connection.confirmTransaction({
             blockhash: latestBlockHash.blockhash,
@@ -78,22 +74,23 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
             signature: transactionSignature,
           })
 
+          console.log("Stake tx:")
           console.log(
             `https://explorer.solana.com/tx/${transactionSignature}?cluster=devnet`
           )
-
-          // push to new page
-          router.push(`/stake?mint=${mint}&imageSrc=${nftData?.json.image}`)
         } catch (error) {
           alert(error)
         }
+
+        // push to new page
+        router.push(`/stake?mint=${mint}&imageSrc=${nftData?.json.image}`)
       }
     }, [router, mint, nftData])
 
   useEffect(() => {
     metaplex
       .nfts()
-      .findByMint({ mintAddress: mint })
+      .findByMint({ mintAddress: new PublicKey(mint) })
       .run()
       .then((nft) => {
         setNftData(nft)
@@ -123,6 +120,7 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
           color="white"
           maxW="380px"
           onClick={handleClick}
+          isLoading={isStaking}
         >
           <HStack>
             <Text>stake my buildoor</Text>

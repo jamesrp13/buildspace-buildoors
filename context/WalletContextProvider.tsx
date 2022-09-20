@@ -1,6 +1,8 @@
 import { FC, ReactNode, useMemo } from "react"
 import {
   ConnectionProvider,
+  useLocalStorage,
+  useWallet,
   WalletProvider,
 } from "@solana/wallet-adapter-react"
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui"

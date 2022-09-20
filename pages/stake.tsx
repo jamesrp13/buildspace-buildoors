@@ -20,25 +20,12 @@ import {
   useDisclosure,
 } from "@chakra-ui/react"
 import { PublicKey, Transaction } from "@solana/web3.js"
-import {
-  getAssociatedTokenAddress,
-  createAssociatedTokenAccountInstruction,
-  getAccount,
-  TokenAccountNotFoundError,
-  TokenInvalidAccountOwnerError,
-} from "@solana/spl-token"
+import { getAssociatedTokenAddress } from "@solana/spl-token"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
-import { getStakeAccount } from "../utils/accounts"
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
-import {
-  createStakeInstruction,
-  createUnstakeInstruction,
-  createRedeemInstruction,
-} from "../utils/instructions"
 import { STAKE_MINT } from "../utils/constants"
-
-// unused metaplex context
-import { useMetaplexConnection } from "../components/MetaplexProvider"
+import { PROGRAM_ID as METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata"
+import { useWorkspace } from "../context/Anchor"
 
 const ItemBox = ({
   children,
@@ -61,6 +48,7 @@ const ItemBox = ({
 
 const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
   const [nftData, setNftData] = useState<any>()
+  const [stakeAccountAddress, setStakeAccountAddress] = useState<PublicKey>()
   const [tokenAccountAddress, setTokenAccountAddress] = useState<PublicKey>()
   const [stakeState, setStakeState] = useState<any>()
   const [isStaking, setIsStaking] = useState(false)
@@ -72,137 +60,73 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
   const { publicKey, sendTransaction } = useWallet()
   const walletAdapter = useWallet()
 
+  const workspace = useWorkspace()
+  const program = workspace.program
+
   // metaplex setup
   const metaplex = useMemo(() => {
     return Metaplex.make(connection).use(walletAdapterIdentity(walletAdapter))
   }, [connection, walletAdapter])
 
-  // stake instruction
+  // send stake transaction
   const handleStake = async () => {
-    if (publicKey && tokenAccountAddress) {
-      // create stake instruction
-      const stakeInstruction = createStakeInstruction(
-        publicKey,
-        tokenAccountAddress,
-        nftData.mint.address,
-        nftData.edition.address
-      )
-
-      // add instruction to transaction
-      const transaction = new Transaction().add(stakeInstruction)
-
-      // helper function to send and confirm transaction
-      sendAndConfirmTransaction(transaction)
-    }
-  }
-
-  // unstake instruction
-  const handleUnstake = async () => {
-    if (publicKey && tokenAccountAddress) {
-      const transaction = new Transaction()
-
-      // get stake rewards token address
-      const stakeRewardTokenAddress = await getAssociatedTokenAddress(
-        STAKE_MINT,
-        publicKey
-      )
-
-      // create token account instruction
-      const createTokenAccountInstruction =
-        createAssociatedTokenAccountInstruction(
-          publicKey, // payer
-          stakeRewardTokenAddress, // token address
-          publicKey, // token owner
-          STAKE_MINT // token mint
-        )
-
-      try {
-        // check if token account already exists
-        await getAccount(
-          connection, // connection
-          stakeRewardTokenAddress // token address
-        )
-      } catch (error: unknown) {
-        if (
-          error instanceof TokenAccountNotFoundError ||
-          error instanceof TokenInvalidAccountOwnerError
-        ) {
-          try {
-            // add instruction to create token account if one does not exist
-            transaction.add(createTokenAccountInstruction)
-          } catch (error: unknown) {}
-        } else {
-          throw error
-        }
-      }
-
-      // unstake instruction
-      const unstakeInstruction = createUnstakeInstruction(
-        publicKey,
-        tokenAccountAddress,
-        nftData.mint.address,
-        nftData.edition.address,
-        stakeRewardTokenAddress
-      )
-
-      // add instruction to transaction
-      transaction.add(unstakeInstruction)
+    if (program && nftData) {
+      const transaction = await program.methods
+        .stake()
+        .accounts({
+          nftTokenAccount: tokenAccountAddress,
+          nftMint: nftData.mint.address,
+          nftEdition: nftData.edition.address,
+          metadataProgram: METADATA_PROGRAM_ID,
+        })
+        .transaction()
 
       // helper function to send and confirm transaction
       sendAndConfirmTransaction(transaction)
     }
   }
 
-  // redeem instruction
+  // send redeem transaction
   const handleRedeem = async () => {
-    if (publicKey && tokenAccountAddress) {
-      const transaction = new Transaction()
-
+    if (program && publicKey) {
       // get stake rewards token address
       const stakeRewardTokenAddress = await getAssociatedTokenAddress(
         STAKE_MINT,
         publicKey
       )
 
-      // create token account instruction
-      const createTokenAccountInstruction =
-        createAssociatedTokenAccountInstruction(
-          publicKey, // payer
-          stakeRewardTokenAddress, // token address
-          publicKey, // token owner
-          STAKE_MINT // token mint
-        )
+      const transaction = await program.methods
+        .redeem()
+        .accounts({
+          nftTokenAccount: tokenAccountAddress,
+          stakeMint: STAKE_MINT,
+          userStakeAta: stakeRewardTokenAddress,
+        })
+        .transaction()
 
-      try {
-        // check if token account already exists
-        await getAccount(
-          connection, // connection
-          stakeRewardTokenAddress // token address
-        )
-      } catch (error: unknown) {
-        if (
-          error instanceof TokenAccountNotFoundError ||
-          error instanceof TokenInvalidAccountOwnerError
-        ) {
-          try {
-            // add instruction to create token account if one does not exist
-            transaction.add(createTokenAccountInstruction)
-          } catch (error: unknown) {}
-        } else {
-          throw error
-        }
-      }
+      // helper function to send and confirm transaction
+      sendAndConfirmTransaction(transaction)
+    }
+  }
 
-      // redeem instruction
-      const redeemInstruction = createRedeemInstruction(
-        publicKey,
-        tokenAccountAddress,
-        stakeRewardTokenAddress
+  // send unstake transaction
+  const handleUnstake = async () => {
+    if (publicKey && program) {
+      const stakeRewardTokenAddress = await getAssociatedTokenAddress(
+        STAKE_MINT,
+        publicKey
       )
-
-      // add transaction to instruction
-      transaction.add(redeemInstruction)
-
+      const transaction = await program.methods
+        .unstake()
+        .accounts({
+          nftTokenAccount: tokenAccountAddress,
+          nftMint: nftData.mint.address,
+          nftEdition: nftData.edition.address,
+          stakeMint: STAKE_MINT,
+          userStakeAta: stakeRewardTokenAddress,
+          metadataProgram: METADATA_PROGRAM_ID,
+        })
+        .transaction()
       // helper function to send and confirm transaction
       sendAndConfirmTransaction(transaction)
     }
@@ -259,25 +183,39 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
     ).value[0].address
 
     setTokenAccountAddress(tokenAccount)
+
+    if (program && publicKey) {
+      // derive stakeState account PDA
+      const [stakeStatePDA] = await PublicKey.findProgramAddress(
+        [publicKey.toBuffer(), tokenAccount.toBuffer()],
+        program.programId
+      )
+
+      setStakeAccountAddress(stakeStatePDA)
+    }
   }
 
   // check stake status of NFT
   const checkStakeStatus = async () => {
-    if (publicKey && tokenAccountAddress) {
-      // helper function to deserialize stake account
-      const stakeAccount = await getStakeAccount(
-        connection,
-        publicKey,
-        tokenAccountAddress
-      )
+    if (program && stakeAccountAddress) {
+      try {
+        // fetch stakeState account data
+        const stakeStateAccount = await program.account.userStakeInfo.fetch(
+          stakeAccountAddress
+        )
+        console.log(Object.keys(stakeStateAccount.stakeState))
+        setStakeState(stakeStateAccount)
 
-      setStakeState(stakeAccount)
-
-      if (stakeAccount.stakeState == 0) {
-        setIsStaking(true)
-      } else {
-        setIsStaking(false)
-      }
+        // set staking status
+        if (
+          (Object.keys(stakeStateAccount.stakeState) as unknown as string) ==
+          "staked"
+        ) {
+          setIsStaking(true)
+        } else {
+          setIsStaking(false)
+        }
+      } catch (error: unknown) {}
     }
   }
 
@@ -290,8 +228,6 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc, level }) => {
       const rewards = timestamp! - stakeState.lastStakeRedeem.toNumber()
       const duration = timestamp! - stakeState.stakeStartTime.toNumber()
       convert(duration)
-
-      // calculate accumulated staking rewards
       setStakeRewards(rewards)
     }
   }
