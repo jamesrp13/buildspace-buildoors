@@ -20,6 +20,7 @@ import {
 import { ArrowForwardIcon } from "@chakra-ui/icons"
 import { PublicKey } from "@solana/web3.js"
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
+import { useRouter } from "next/router"
 
 const NewMint: NextPage<NewMintProps> = ({ mint }) => {
   const [metadata, setMetadata] = useState<any>()
@@ -43,9 +44,13 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
       })
   }, [mint, metaplex, walletAdapter])
 
+  const router = useRouter()
+
   const handleClick: MouseEventHandler<HTMLButtonElement> = useCallback(
-    async (event) => {},
-    []
+    async (event) => {
+      router.push(`/stake?mint=${mint}&imageSrc=${metadata?.image}`)
+    },
+    [router, mint, metadata]
   )
 
   return (
