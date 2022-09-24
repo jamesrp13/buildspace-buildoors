@@ -7,9 +7,11 @@ import {
   Image,
   Center,
 } from "@chakra-ui/react"
+import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
+import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { NextPage } from "next"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ItemBox } from "../components/ItemBox"
 import MainLayout from "../components/MainLayout"
 import { StakeOptionsDisplay } from "../components/StakeOptionsDisplay"
@@ -17,6 +19,29 @@ import { StakeOptionsDisplay } from "../components/StakeOptionsDisplay"
 const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
   const [isStaking, setIsStaking] = useState(false)
   const [level, setLevel] = useState(1)
+  const [nftData, setNftData] = useState<any>()
+
+  const { connection } = useConnection()
+  const walletAdapter = useWallet()
+
+  useEffect(() => {
+    const metaplex = Metaplex.make(connection).use(
+      walletAdapterIdentity(walletAdapter)
+    )
+
+    try {
+      metaplex
+        .nfts()
+        .findByMint({ mintAddress: mint })
+        .run()
+        .then((nft) => {
+          console.log("nft data on stake page:", nft)
+          setNftData(nft)
+        })
+    } catch (e) {
+      console.log("error getting nft:", e)
+    }
+  }, [connection, walletAdapter])
 
   return (
     <MainLayout>
@@ -56,7 +81,8 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
           </VStack>
           <VStack alignItems="flex-start" spacing={10}>
             <StakeOptionsDisplay
-              isStaking={false}
+              nftData={nftData}
+              isStaked={false}
               daysStaked={4}
               totalEarned={60}
               claimable={20}
