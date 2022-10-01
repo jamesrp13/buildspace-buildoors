@@ -1,26 +1,14 @@
-import { Connection, PublicKey } from "@solana/web3.js"
-import { PROGRAM_ID } from "./constants"
-import * as borsh from "@project-serum/borsh"
-
-const userStakeAccountLayout = borsh.struct([
-  borsh.bool("isInitialized"),
-  borsh.publicKey("tokenAccount"),
-  borsh.i64("stakeStartTime"),
-  borsh.i64("lastRedeem"),
-  borsh.publicKey("userPubkey"),
-  borsh.u8("state"),
-])
+import { PublicKey } from "@solana/web3.js"
 
 export async function getStakeAccount(
-  connection: Connection,
+  program: any,
   user: PublicKey,
   tokenAccount: PublicKey
 ): Promise<any> {
-  const [accountPubkey] = PublicKey.findProgramAddressSync(
+  const [pda] = PublicKey.findProgramAddressSync(
     [user.toBuffer(), tokenAccount.toBuffer()],
-    PROGRAM_ID
+    program.programId
   )
-  const account = await connection.getAccountInfo(accountPubkey)
-  if (!account) throw {}
-  return userStakeAccountLayout.decode(account.data)
+  const account = await program.account.userStakeInfo.fetch(pda)
+  return account
 }

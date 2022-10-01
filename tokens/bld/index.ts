@@ -125,7 +125,7 @@ async function main() {
   await createBldToken(
     connection,
     payer,
-    new web3.PublicKey("Eh4XiAcJKsfsg3QBLWeFDdoxfrkbcWyaLkpyqTobCGaS")
+    new web3.PublicKey("3CUC1Enh3GF7X1vE7ixm1Aq7cv1fTqY7UZvnDoz7X9sZ")
   )
 }
 
