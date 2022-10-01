@@ -34,6 +34,7 @@ export const StakeOptionsDisplay = ({
     }
 
     try {
+      console.log("Getting stake account")
       const account = await getStakeAccount(
         workspace.program,
         walletAdapter.publicKey,
@@ -42,7 +43,7 @@ export const StakeOptionsDisplay = ({
 
       console.log("stake account:", account)
 
-      setIsStaking(account.state === 0)
+      setIsStaking(account.stakeState.staked)
     } catch (e) {
       console.log("error:", e)
     }
@@ -106,6 +107,7 @@ export const StakeOptionsDisplay = ({
         console.log(error)
       }
 
+      console.log("Transaction complete")
       await checkStakingStatus()
     },
     [walletAdapter, connection]
