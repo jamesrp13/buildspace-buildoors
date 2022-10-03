@@ -35,24 +35,45 @@ const Connected: FC = () => {
   }, [connection, walletAdapter])
 
   useEffect(() => {
-    if (!metaplex) return
+    handleInitialLoad()
+  }, [metaplex, walletAdapter])
 
-    metaplex
-      .candyMachines()
-      .findByAddress({
-        address: new PublicKey(
-          process.env.NEXT_PUBLIC_CANDY_MACHINE_ADDRESS ?? ""
-        ),
-      })
-      .run()
-      .then((candyMachine) => {
-        console.log(candyMachine)
-        setCandyMachine(candyMachine)
-      })
-      .catch((error) => {
-        alert(error)
-      })
-  }, [metaplex])
+  const handleInitialLoad = useCallback(async () => {
+    if (!metaplex || !walletAdapter.publicKey) return
+
+    try {
+      const candymachine = await metaplex
+        .candyMachines()
+        .findByAddress({
+          address: new PublicKey(
+            process.env.NEXT_PUBLIC_CANDY_MACHINE_ADDRESS ?? ""
+          ),
+        })
+        .run()
+
+      const nfts = await metaplex
+        .nfts()
+        .findAllByOwner({ owner: walletAdapter.publicKey })
+        .run()
+
+      const nft = nfts.find(
+        (nft) =>
+          nft.collection?.address.toBase58() ===
+          candymachine.collectionMintAddress?.toBase58()
+      )
+
+      if (nft) {
+        const metadata = await (await fetch(nft.uri)).json()
+        router.push(
+          `/stake?mint=${nft.mintAddress}&imageSrc=${metadata?.image}`
+        )
+      }
+
+      setCandyMachine(candyMachine)
+    } catch (error) {
+      alert(error)
+    }
+  }, [metaplex, walletAdapter])
 
   const router = useRouter()
 

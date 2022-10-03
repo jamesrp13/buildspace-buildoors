@@ -11,14 +11,15 @@ import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { NextPage } from "next"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ItemBox } from "../components/ItemBox"
 import MainLayout from "../components/MainLayout"
 import { StakeOptionsDisplay } from "../components/StakeOptionsDisplay"
+import { useWorkspace } from "../components/WorkspaceProvider"
+import { getStakeAccount, StakeAccount } from "../utils/accounts"
 
-const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
-  const [isStaking, setIsStaking] = useState(false)
-  const [level, setLevel] = useState(1)
+const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
+  const [stakeAccount, setStakeAccount] = useState<StakeAccount>()
   const [nftData, setNftData] = useState<any>()
 
   const { connection } = useConnection()
@@ -29,6 +30,8 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
       walletAdapterIdentity(walletAdapter)
     )
 
+    const mint = new PublicKey(mintAddress)
+
     try {
       metaplex
         .nfts()
@@ -38,10 +41,38 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
           console.log("nft data on stake page:", nft)
           setNftData(nft)
         })
+    } catch (error) {
+      console.log("error getting nft:", error)
+    }
+  }, [connection, walletAdapter])
+
+  useEffect(() => {
+    fetchstate()
+  }, [connection, walletAdapter, nftData])
+
+  const { program } = useWorkspace()
+  const fetchstate = useCallback(async () => {
+    try {
+      if (!nftData || !walletAdapter.publicKey) {
+        return
+      }
+      const tokenAccount = (
+        await connection.getTokenLargestAccounts(nftData.mint.address)
+      ).value[0].address
+
+      const account = await getStakeAccount(
+        program,
+        walletAdapter.publicKey,
+        tokenAccount
+      )
+
+      console.log("stake account:", account)
+
+      setStakeAccount(account)
     } catch (e) {
       console.log("error getting nft:", e)
     }
-  }, [connection, walletAdapter])
+  }, [connection, walletAdapter, nftData])
 
   return (
     <MainLayout>
@@ -71,21 +102,19 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
                   width="100%"
                   textAlign="center"
                 >
-                  {isStaking ? "STAKING" : "UNSTAKED"}
+                  {stakeAccount?.stakeState.staked ? "STAKING" : "UNSTAKED"}
                 </Text>
               </Center>
             </Flex>
             <Text fontSize="2xl" as="b" color="white">
-              LEVEL {level}
+              LEVEL {1}
             </Text>
           </VStack>
           <VStack alignItems="flex-start" spacing={10}>
             <StakeOptionsDisplay
               nftData={nftData}
-              isStaked={false}
-              daysStaked={4}
-              totalEarned={60}
-              claimable={20}
+              stakeAccount={stakeAccount}
+              fetchState={fetchstate}
             />
             <HStack spacing={10}>
               <VStack alignItems="flex-start">
@@ -116,7 +145,7 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
 }
 
 interface StakeProps {
-  mint: PublicKey
+  mintAddress: string
   imageSrc: string
 }
 
@@ -126,8 +155,9 @@ Stake.getInitialProps = async ({ query }: any) => {
   if (!mint || !imageSrc) throw { error: "no mint" }
 
   try {
-    const mintPubkey = new PublicKey(mint)
-    return { mint: mintPubkey, imageSrc: imageSrc }
+    const _ = new PublicKey(mint)
+
+    return { mintAddress: mint, imageSrc: imageSrc }
   } catch {
     throw { error: "invalid mint" }
   }

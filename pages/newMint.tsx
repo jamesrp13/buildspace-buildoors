@@ -22,7 +22,7 @@ import { PublicKey } from "@solana/web3.js"
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
 import { useRouter } from "next/router"
 
-const NewMint: NextPage<NewMintProps> = ({ mint }) => {
+const NewMint: NextPage<NewMintProps> = ({ mintAddress }) => {
   const [metadata, setMetadata] = useState<any>()
   const { connection } = useConnection()
   const walletAdapter = useWallet()
@@ -31,6 +31,8 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
   }, [connection, walletAdapter])
 
   useEffect(() => {
+    const mint = new PublicKey(mintAddress)
+
     metaplex
       .nfts()
       .findByMint({ mintAddress: mint })
@@ -42,15 +44,17 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
             setMetadata(metadata)
           })
       })
-  }, [mint, metaplex, walletAdapter])
+  }, [mintAddress, metaplex, walletAdapter])
 
   const router = useRouter()
 
   const handleClick: MouseEventHandler<HTMLButtonElement> = useCallback(
     async (event) => {
-      router.push(`/stake?mint=${mint}&imageSrc=${metadata?.image}`)
+      event.preventDefault()
+
+      router.push(`/stake?mint=${mintAddress}&imageSrc=${metadata?.image}`)
     },
-    [router, mint, metadata]
+    [router, mintAddress, metadata]
   )
 
   return (
@@ -88,7 +92,7 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
 }
 
 interface NewMintProps {
-  mint: PublicKey
+  mintAddress: string
 }
 
 NewMint.getInitialProps = async ({ query }) => {
@@ -97,8 +101,8 @@ NewMint.getInitialProps = async ({ query }) => {
   if (!mint) throw { error: "no mint" }
 
   try {
-    const mintPubkey = new PublicKey(mint)
-    return { mint: mintPubkey }
+    const _ = new PublicKey(mint)
+    return { mintAddress: mint as string }
   } catch {
     throw { error: "invalid mint" }
   }
