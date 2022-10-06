@@ -42,7 +42,7 @@ const Connected: FC = () => {
     if (!metaplex || !walletAdapter.publicKey) return
 
     try {
-      const candymachine = await metaplex
+      const candyMachine = await metaplex
         .candyMachines()
         .findByAddress({
           address: new PublicKey(
@@ -59,7 +59,7 @@ const Connected: FC = () => {
       const nft = nfts.find(
         (nft) =>
           nft.collection?.address.toBase58() ===
-          candymachine.collectionMintAddress?.toBase58()
+          candyMachine.collectionMintAddress?.toBase58()
       )
 
       if (nft) {
