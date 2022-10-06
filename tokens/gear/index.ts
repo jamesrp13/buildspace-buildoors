@@ -129,7 +129,7 @@ async function main() {
   await createGear(
     connection,
     payer,
-    new web3.PublicKey("6GE3ki2igpw2ZTAt6BV4pTjF5qvtCbFVQP7SGPJaEuoa"),
+    new web3.PublicKey("2B9axnNZcV4ASAN7eQQFZrEAR7WxkHeNvQFaXc8vE8nF"),
     ["Bow", "Glasses", "Hat", "Keyboard", "Mustache"]
   )
 }
