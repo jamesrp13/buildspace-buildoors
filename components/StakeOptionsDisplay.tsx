@@ -19,7 +19,7 @@ export const StakeOptionsDisplay = ({
 }: {
   nftData: any
   stakeAccount?: StakeAccount
-  fetchState: any
+  fetchState: (_: PublicKey) => void
 }) => {
   const walletAdapter = useWallet()
   const { connection } = useConnection()
@@ -37,10 +37,7 @@ export const StakeOptionsDisplay = ({
     }
 
     if (walletAdapter.publicKey) {
-      const userStakeATA = getAssociatedTokenAddress(
-        STAKE_MINT,
-        walletAdapter.publicKey
-      )
+      getAssociatedTokenAddress(STAKE_MINT, walletAdapter.publicKey)
         .then((ata) => {
           return getAccount(connection, ata)
         })
@@ -56,7 +53,7 @@ export const StakeOptionsDisplay = ({
       !walletAdapter.connected ||
       !walletAdapter.publicKey ||
       !nftTokenAccount ||
-      !workspace.program
+      !workspace.stakingProgram
     ) {
       alert("Please connect your wallet")
       return
@@ -65,7 +62,7 @@ export const StakeOptionsDisplay = ({
     const transaction = new Transaction()
 
     transaction.add(
-      await workspace.program.methods
+      await workspace.stakingProgram.methods
         .stake()
         .accounts({
           nftTokenAccount: nftTokenAccount,
@@ -104,7 +101,9 @@ export const StakeOptionsDisplay = ({
       }
 
       console.log("Transaction complete")
-      await fetchState()
+      if (nftData) {
+        await fetchState(nftData.mint.address)
+      }
     },
     [walletAdapter, connection]
   )
@@ -114,7 +113,7 @@ export const StakeOptionsDisplay = ({
       !walletAdapter.connected ||
       !walletAdapter.publicKey ||
       !nftTokenAccount ||
-      !workspace.program
+      !workspace.stakingProgram
     ) {
       alert("Please connect your wallet")
       return
@@ -127,8 +126,10 @@ export const StakeOptionsDisplay = ({
 
     const transaction = new Transaction()
 
+    console.log(userStakeATA)
+
     transaction.add(
-      await workspace.program.methods
+      await workspace.stakingProgram.methods
         .unstake()
         .accounts({
           nftTokenAccount: nftTokenAccount,
@@ -149,7 +150,7 @@ export const StakeOptionsDisplay = ({
       !walletAdapter.connected ||
       !walletAdapter.publicKey ||
       !nftTokenAccount ||
-      !workspace.program
+      !workspace.stakingProgram
     ) {
       alert("Please connect your wallet")
       return
@@ -163,7 +164,7 @@ export const StakeOptionsDisplay = ({
     const transaction = new Transaction()
 
     transaction.add(
-      await workspace.program.methods
+      await workspace.stakingProgram.methods
         .redeem()
         .accounts({
           nftTokenAccount: nftTokenAccount,

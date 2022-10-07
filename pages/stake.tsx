@@ -17,10 +17,15 @@ import MainLayout from "../components/MainLayout"
 import { StakeOptionsDisplay } from "../components/StakeOptionsDisplay"
 import { useWorkspace } from "../components/WorkspaceProvider"
 import { getStakeAccount, StakeAccount } from "../utils/accounts"
+import { GEAR_OPTIONS } from "../utils/constants"
+import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token"
+import { Lootbox } from "../components/Lootbox"
 
 const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
   const [stakeAccount, setStakeAccount] = useState<StakeAccount>()
+  const [nftTokenAccount, setNftTokenAccount] = useState<PublicKey>()
   const [nftData, setNftData] = useState<any>()
+  const [gearBalances, setGearBalances] = useState<any>({})
 
   const { connection } = useConnection()
   const walletAdapter = useWallet()
@@ -40,39 +45,57 @@ const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
         .then((nft) => {
           console.log("nft data on stake page:", nft)
           setNftData(nft)
+          fetchstate(nft.mint.address)
         })
     } catch (error) {
       console.log("error getting nft:", error)
     }
   }, [connection, walletAdapter])
 
-  useEffect(() => {
-    fetchstate()
-  }, [connection, walletAdapter, nftData])
+  const { stakingProgram } = useWorkspace()
+  const fetchstate = useCallback(
+    async (mint: PublicKey) => {
+      try {
+        if (!walletAdapter.publicKey) {
+          return
+        }
 
-  const { program } = useWorkspace()
-  const fetchstate = useCallback(async () => {
-    try {
-      if (!nftData || !walletAdapter.publicKey) {
-        return
+        const tokenAccount = (await connection.getTokenLargestAccounts(mint))
+          .value[0].address
+
+        setNftTokenAccount(tokenAccount)
+
+        const account = await getStakeAccount(
+          stakingProgram,
+          walletAdapter.publicKey,
+          tokenAccount
+        )
+
+        console.log("stake account:", account)
+
+        setStakeAccount(account)
+
+        let balances: any = {}
+
+        for (let i = 0; i < GEAR_OPTIONS.length; i++) {
+          const gearMint = GEAR_OPTIONS[i]
+          const ata = await getAssociatedTokenAddress(
+            gearMint,
+            walletAdapter.publicKey
+          )
+          try {
+            const account = await getAccount(connection, ata)
+            balances[gearMint.toBase58()] = account.amount
+          } catch {}
+        }
+
+        setGearBalances(balances)
+      } catch (e) {
+        console.log("error getting stake account:", e)
       }
-      const tokenAccount = (
-        await connection.getTokenLargestAccounts(nftData.mint.address)
-      ).value[0].address
-
-      const account = await getStakeAccount(
-        program,
-        walletAdapter.publicKey,
-        tokenAccount
-      )
-
-      console.log("stake account:", account)
-
-      setStakeAccount(account)
-    } catch (e) {
-      console.log("error getting nft:", e)
-    }
-  }, [connection, walletAdapter, nftData])
+    },
+    [connection, walletAdapter, stakingProgram]
+  )
 
   return (
     <MainLayout>
@@ -117,23 +140,32 @@ const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
               fetchState={fetchstate}
             />
             <HStack spacing={10}>
+              {gearBalances.length > 0 && (
+                <VStack alignItems="flex-start">
+                  <Text color="white" as="b" fontSize="2xl">
+                    Gear
+                  </Text>
+                  <HStack>
+                    <ItemBox>mock</ItemBox>
+                    <ItemBox>mock</ItemBox>
+                  </HStack>
+                </VStack>
+              )}
+
               <VStack alignItems="flex-start">
                 <Text color="white" as="b" fontSize="2xl">
-                  Gear
+                  Loot Box
                 </Text>
                 <HStack>
-                  <ItemBox>mock</ItemBox>
-                  <ItemBox>mock</ItemBox>
-                </HStack>
-              </VStack>
-              <VStack alignItems="flex-start">
-                <Text color="white" as="b" fontSize="2xl">
-                  Loot Boxes
-                </Text>
-                <HStack>
-                  <ItemBox>mock</ItemBox>
-                  <ItemBox>mock</ItemBox>
-                  <ItemBox>mock</ItemBox>
+                  {nftData && nftTokenAccount && (
+                    <Lootbox
+                      stakeAccount={stakeAccount}
+                      nftTokenAccount={nftTokenAccount}
+                      fetchUpstreamState={() => {
+                        fetchstate(nftData.mint.address)
+                      }}
+                    />
+                  )}
                 </HStack>
               </VStack>
             </HStack>
