@@ -1,6 +1,6 @@
 import { VStack, Text, Button } from "@chakra-ui/react"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
-import { PublicKey, Transaction } from "@solana/web3.js"
+import { Connection, PublicKey, Transaction } from "@solana/web3.js"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   getAssociatedTokenAddress,
@@ -37,16 +37,22 @@ export const StakeOptionsDisplay = ({
     }
 
     if (walletAdapter.publicKey) {
-      getAssociatedTokenAddress(STAKE_MINT, walletAdapter.publicKey)
-        .then((ata) => {
-          return getAccount(connection, ata)
-        })
-        .then((account) => setBldTokenAccount(account))
-        .catch((error) => {
-          console.log(error)
-        })
+      getTokenAccount(walletAdapter.publicKey, connection)
     }
   }, [nftData, walletAdapter, connection])
+
+  const getTokenAccount = async (
+    publicKey: PublicKey,
+    connection: Connection
+  ) => {
+    try {
+      const ata = await getAssociatedTokenAddress(STAKE_MINT, publicKey)
+      const account = await getAccount(connection, ata)
+      setBldTokenAccount(account)
+    } catch (error) {
+      console.log(error)
+    }
+  }
 
   const handleStake = useCallback(async () => {
     if (
@@ -85,6 +91,7 @@ export const StakeOptionsDisplay = ({
           transaction,
           connection
         )
+
         const latestBlockhash = await connection.getLatestBlockhash()
         await connection.confirmTransaction(
           {
@@ -94,18 +101,18 @@ export const StakeOptionsDisplay = ({
           },
           "finalized"
         )
+
+        await getTokenAccount(walletAdapter.publicKey!, connection)
+        if (nftData) {
+          await fetchState(nftData.mint.address)
+        }
       } catch (error) {
         console.log(error)
       } finally {
         setIsConfirmingTransaction(false)
       }
-
-      console.log("Transaction complete")
-      if (nftData) {
-        await fetchState(nftData.mint.address)
-      }
     },
-    [walletAdapter, connection]
+    [walletAdapter, connection, nftData]
   )
 
   const handleUnstake = useCallback(async () => {
@@ -126,8 +133,6 @@ export const StakeOptionsDisplay = ({
 
     const transaction = new Transaction()
 
-    console.log(userStakeATA)
-
     transaction.add(
       await workspace.stakingProgram.methods
         .unstake()
@@ -143,7 +148,7 @@ export const StakeOptionsDisplay = ({
     )
 
     await sendAndConfirmTransaction(transaction)
-  }, [walletAdapter, connection, nftData, nftTokenAccount])
+  }, [walletAdapter, connection, nftData, nftTokenAccount, workspace])
 
   const handleClaim = useCallback(async () => {
     if (

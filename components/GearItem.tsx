@@ -4,7 +4,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { useEffect, useState } from "react"
 
-export const ItemBox = ({
+export const GearItem = ({
   item,
   balance,
 }: {
@@ -27,9 +27,9 @@ export const ItemBox = ({
         .nfts()
         .findByMint({ mintAddress: mint })
         .run()
-        .then((nft) => {
-          setMetadata(nft)
-        })
+        .then((nft) => fetch(nft.uri))
+        .then((response) => response.json())
+        .then((nftData) => setMetadata(nftData))
     } catch (error) {
       console.log("error getting gear token:", error)
     }
@@ -43,9 +43,11 @@ export const ItemBox = ({
         bgColor={"containerBg"}
         borderRadius="10px"
       >
-        {metadata && <Image src={metadata.image} />}
+        <Image src={metadata?.image ?? ""} alt="gear token" padding={4} />
       </Center>
-      <Text>{`x${balance}`}</Text>
+      <Text color="white" as="b" fontSize="md" width="100%" textAlign="center">
+        {`x${balance}`}
+      </Text>
     </VStack>
   )
 }

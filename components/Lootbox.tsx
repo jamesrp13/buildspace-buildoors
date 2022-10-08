@@ -1,6 +1,10 @@
-import { Center, VStack, Text, Button } from "@chakra-ui/react"
-import { useConnection, useWallet } from "@solana/wallet-adapter-react"
-import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js"
+import { Center, Text, Button } from "@chakra-ui/react"
+import {
+  useConnection,
+  useWallet,
+  WalletContextState,
+} from "@solana/wallet-adapter-react"
+import { Connection, PublicKey, Transaction } from "@solana/web3.js"
 import { MouseEventHandler, useCallback, useEffect, useState } from "react"
 import { StakeAccount } from "../utils/accounts"
 import { LOOTBOX_PROGRAM_ID } from "../utils/constants"
@@ -13,6 +17,8 @@ import {
   createOpenLootboxInstructions,
 } from "../utils/instructions"
 import { AnchorNftStaking } from "../utils/anchor_nft_staking"
+import { getAssociatedTokenAddress } from "@solana/spl-token"
+import { SendTransactionOptions } from "@solana/wallet-adapter-base"
 
 export const Lootbox = ({
   stakeAccount,
@@ -30,8 +36,7 @@ export const Lootbox = ({
   const { connection } = useConnection()
 
   const [userAccountExists, setUserAccountExist] = useState(false)
-  const [redeemable, setRedeemable] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [mint, setMint] = useState<PublicKey>()
 
   useEffect(() => {
     if (!walletAdapter.publicKey || !lootboxProgram || !stakingProgram) return
@@ -76,12 +81,29 @@ export const Lootbox = ({
         event.defaultPrevented ||
         !walletAdapter.publicKey ||
         !lootboxProgram ||
-        !switchboardProgram ||
-        !stakingProgram
+        !mint
       )
         return
+
+      const userGearAta = await getAssociatedTokenAddress(
+        mint,
+        walletAdapter.publicKey
+      )
+
+      const transaction = new Transaction()
+      transaction.add(
+        await lootboxProgram.methods
+          .retrieveItemFromLootbox()
+          .accounts({
+            mint: mint,
+            userGearAta: userGearAta,
+          })
+          .instruction()
+      )
+
+      sendAndConfirmTransaction(connection, walletAdapter, transaction)
     },
-    []
+    [walletAdapter, lootboxProgram, mint]
   )
 
   // check if UserState account exists
@@ -98,9 +120,8 @@ export const Lootbox = ({
       const account = await lootboxProgram.account.userState.fetch(userStatePda)
       if (account) {
         setUserAccountExist(true)
-        setRedeemable(account.redeemable)
       } else {
-        setRedeemable(false)
+        setMint(undefined)
         setUserAccountExist(false)
       }
     } catch {}
@@ -119,16 +140,13 @@ export const Lootbox = ({
       const lootboxPointer = await lootboxProgram.account.lootboxPointer.fetch(
         lootboxPointerPda
       )
-      console.log(
-        "Setting available lootbox to",
-        lootboxPointer.availableLootbox.toNumber()
-      )
-      console.log(lootboxPointer)
+
       setAvailableLootbox(lootboxPointer.availableLootbox.toNumber())
+      setMint(lootboxPointer.redeemable ? lootboxPointer.mint : undefined)
     } catch (error) {
       console.log(error)
-      console.log("Setting available lootbox to", 10)
       setAvailableLootbox(10)
+      setMint(undefined)
     }
   }
 
@@ -158,7 +176,9 @@ export const Lootbox = ({
 
       const transaction = new Transaction()
       transaction.add(...instructions)
-      sendAndConfirmTransaction(transaction, [vrfKeypair])
+      sendAndConfirmTransaction(connection, walletAdapter, transaction, {
+        signers: [vrfKeypair],
+      })
     } else {
       const instructions = await createOpenLootboxInstructions(
         connection,
@@ -172,41 +192,73 @@ export const Lootbox = ({
 
       const transaction = new Transaction()
       transaction.add(...instructions)
-      sendAndConfirmTransaction(transaction)
-    }
-  }
-
-  const sendAndConfirmTransaction = useCallback(
-    async (transaction: Transaction, signers: Keypair[] = []) => {
-      setIsConfirmingTransaction(true)
-
       try {
-        const signature = await walletAdapter.sendTransaction(
-          transaction,
-          connection,
-          { signers: signers }
+        await sendAndConfirmTransaction(connection, walletAdapter, transaction)
+        setIsConfirmingTransaction(true)
+        const [lootboxPointerPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("lootbox"), publicKey.toBytes()],
+          lootboxProgram.programId
         )
-        const latestBlockhash = await connection.getLatestBlockhash()
-        await connection.confirmTransaction(
-          {
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-            signature: signature,
-          },
-          "finalized"
+
+        const id = await connection.onAccountChange(
+          lootboxPointerPda,
+          async (_) => {
+            try {
+              const account = await lootboxProgram.account.lootboxPointer.fetch(
+                lootboxPointerPda
+              )
+              if (account.redeemable) {
+                setMint(account.mint)
+                connection.removeAccountChangeListener(id)
+                setIsConfirmingTransaction(false)
+              }
+            } catch (error) {
+              console.log("Error in waiter:", error)
+            }
+          }
         )
       } catch (error) {
         console.log(error)
-      } finally {
-        setIsConfirmingTransaction(false)
       }
+    }
+  }
+
+  const sendAndConfirmTransaction = async (
+    connection: Connection,
+    walletAdapter: WalletContextState,
+    transaction: Transaction,
+    options?: SendTransactionOptions
+  ) => {
+    setIsConfirmingTransaction(true)
+
+    try {
+      const signature = await walletAdapter.sendTransaction(
+        transaction,
+        connection,
+        options
+      )
+      const latestBlockhash = await connection.getLatestBlockhash()
+      await connection.confirmTransaction(
+        {
+          blockhash: latestBlockhash.blockhash,
+          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+          signature: signature,
+        },
+        "finalized"
+      )
 
       console.log("Transaction complete")
-      handleStateRefresh(lootboxProgram!, walletAdapter.publicKey!)
-      fetchUpstreamState()
-    },
-    [walletAdapter, connection]
-  )
+      await Promise.all([
+        handleStateRefresh(lootboxProgram!, walletAdapter.publicKey!),
+        fetchUpstreamState(),
+      ])
+    } catch (error) {
+      console.log(error)
+      throw error
+    } finally {
+      setIsConfirmingTransaction(false)
+    }
+  }
 
   return (
     <Center
@@ -220,10 +272,10 @@ export const Lootbox = ({
       stakeAccount.totalEarned.toNumber() >= availableLootbox ? (
         <Button
           borderRadius="25"
-          onClick={redeemable ? handleRedeemLoot : handleOpenLootbox}
+          onClick={mint ? handleRedeemLoot : handleOpenLootbox}
           isLoading={isConfirmingTransaction}
         >
-          {redeemable
+          {mint
             ? "Redeem"
             : userAccountExists
             ? `${availableLootbox} $BLD`

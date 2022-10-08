@@ -235,7 +235,7 @@ export type LootboxProgram = {
         },
         {
           "name": "lootboxPointer",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false,
           "pda": {
             "seeds": [
@@ -661,7 +661,7 @@ export const IDL: LootboxProgram = {
         },
         {
           "name": "lootboxPointer",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false,
           "pda": {
             "seeds": [

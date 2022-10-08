@@ -4,7 +4,6 @@ import {
   SystemProgram,
   Keypair,
   SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
-  Transaction,
   Connection,
   LAMPORTS_PER_SOL,
 } from "@solana/web3.js"

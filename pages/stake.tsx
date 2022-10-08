@@ -6,13 +6,13 @@ import {
   Flex,
   Image,
   Center,
+  SimpleGrid,
 } from "@chakra-ui/react"
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { PublicKey } from "@solana/web3.js"
 import { NextPage } from "next"
 import { useCallback, useEffect, useState } from "react"
-import { ItemBox } from "../components/ItemBox"
 import MainLayout from "../components/MainLayout"
 import { StakeOptionsDisplay } from "../components/StakeOptionsDisplay"
 import { useWorkspace } from "../components/WorkspaceProvider"
@@ -20,6 +20,7 @@ import { getStakeAccount, StakeAccount } from "../utils/accounts"
 import { GEAR_OPTIONS } from "../utils/constants"
 import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token"
 import { Lootbox } from "../components/Lootbox"
+import { GearItem } from "../components/GearItem"
 
 const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
   const [stakeAccount, setStakeAccount] = useState<StakeAccount>()
@@ -43,7 +44,6 @@ const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
         .findByMint({ mintAddress: mint })
         .run()
         .then((nft) => {
-          console.log("nft data on stake page:", nft)
           setNftData(nft)
           fetchstate(nft.mint.address)
         })
@@ -71,12 +71,9 @@ const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
           tokenAccount
         )
 
-        console.log("stake account:", account)
-
         setStakeAccount(account)
 
         let balances: any = {}
-
         for (let i = 0; i < GEAR_OPTIONS.length; i++) {
           const gearMint = GEAR_OPTIONS[i]
           const ata = await getAssociatedTokenAddress(
@@ -85,7 +82,7 @@ const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
           )
           try {
             const account = await getAccount(connection, ata)
-            balances[gearMint.toBase58()] = account.amount
+            balances[gearMint.toBase58()] = Number(account.amount)
           } catch {}
         }
 
@@ -139,19 +136,28 @@ const Stake: NextPage<StakeProps> = ({ mintAddress, imageSrc }) => {
               stakeAccount={stakeAccount}
               fetchState={fetchstate}
             />
-            <HStack spacing={10}>
-              {gearBalances.length > 0 && (
+            <HStack spacing={10} align="start">
+              {Object.keys(gearBalances).length > 0 && (
                 <VStack alignItems="flex-start">
                   <Text color="white" as="b" fontSize="2xl">
                     Gear
                   </Text>
-                  <HStack>
-                    <ItemBox>mock</ItemBox>
-                    <ItemBox>mock</ItemBox>
-                  </HStack>
+                  <SimpleGrid
+                    columns={Math.min(2, Object.keys(gearBalances).length)}
+                    spacing={3}
+                  >
+                    {Object.keys(gearBalances).map((key, _) => {
+                      return (
+                        <GearItem
+                          item={key}
+                          balance={gearBalances[key]}
+                          key={key}
+                        />
+                      )
+                    })}
+                  </SimpleGrid>
                 </VStack>
               )}
-
               <VStack alignItems="flex-start">
                 <Text color="white" as="b" fontSize="2xl">
                   Loot Box

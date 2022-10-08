@@ -235,7 +235,7 @@
         },
         {
           "name": "lootboxPointer",
-          "isMut": false,
+          "isMut": true,
           "isSigner": false,
           "pda": {
             "seeds": [
@@ -421,5 +421,8 @@
       "name": "UninitializedLootboxPointer",
       "msg": "Uninitialized Lootbox Pointer"
     }
-  ]
+  ],
+  "metadata": {
+    "address": "2B9axnNZcV4ASAN7eQQFZrEAR7WxkHeNvQFaXc8vE8nF"
+  }
 }

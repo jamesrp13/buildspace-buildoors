@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useState } from "react"
 import {
   Program,
   AnchorProvider,
@@ -7,29 +7,27 @@ import {
 } from "@project-serum/anchor"
 import {
   AnchorNftStaking,
-  IDL as stakingIdl,
+  IDL as StakingIDL,
 } from "../utils/anchor_nft_staking"
+import { IDL as LootboxIDL } from "../utils/lootbox_program"
 import { Connection } from "@solana/web3.js"
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react"
 import MockWallet from "./MockWallet"
-import { LOOTBOX_PROGRAM_ID, PROGRAM_ID } from "../utils/constants"
-import { LootboxProgram, IDL as lootboxIdl } from "../utils/lootbox_program"
+import { PROGRAM_ID, LOOTBOX_PROGRAM_ID } from "../utils/constants"
 import {
-  SwitchboardProgram,
   AnchorWallet,
   loadSwitchboardProgram,
 } from "@switchboard-xyz/switchboard-v2"
+import { LootboxProgram } from "../utils/lootbox_program"
 
 const WorkspaceContext = createContext({})
-const programId = PROGRAM_ID
-const lootboxProgramId = LOOTBOX_PROGRAM_ID
 
-interface Workspace {
+interface WorkSpace {
   connection?: Connection
   provider?: AnchorProvider
   stakingProgram?: Program<AnchorNftStaking>
   lootboxProgram?: Program<LootboxProgram>
-  switchboardProgram?: SwitchboardProgram
+  switchboardProgram?: any
 }
 
 const WorkspaceProvider = ({ children }: any) => {
@@ -39,35 +37,33 @@ const WorkspaceProvider = ({ children }: any) => {
   const provider = new AnchorProvider(connection, wallet, {})
   setProvider(provider)
 
-  const stakingProgram = useMemo(
-    () => new Program(stakingIdl as Idl, programId),
-    []
-  )
-  const lootboxProgram = useMemo(
-    () => new Program(lootboxIdl as Idl, lootboxProgramId),
-    []
-  )
+  const [switchboardProgram, setProgramSwitchboard] = useState<any>()
+  const stakingProgram = new Program(StakingIDL as Idl, PROGRAM_ID)
+  const lootboxProgram = new Program(LootboxIDL as Idl, LOOTBOX_PROGRAM_ID)
 
-  const [switchboardProgram, setSwitchboardProgram] =
-    useState<SwitchboardProgram>()
-
-  useEffect(() => {
-    loadSwitchboardProgram(
+  async function program() {
+    let response = await loadSwitchboardProgram(
       "devnet",
       connection,
       ((provider as AnchorProvider).wallet as AnchorWallet).payer
-    ).then((program) => setSwitchboardProgram(program))
+    )
+    return response
+  }
+
+  useEffect(() => {
+    program().then((result) => {
+      setProgramSwitchboard(result)
+      console.log("result", result)
+    })
   }, [connection])
 
-  const workspace = useMemo(() => {
-    return {
-      connection: connection,
-      provider: provider,
-      stakingProgram: stakingProgram,
-      lootboxProgram: lootboxProgram,
-      switchboardProgram: switchboardProgram,
-    }
-  }, [stakingProgram, lootboxProgram, connection, provider, switchboardProgram])
+  const workspace = {
+    connection,
+    provider,
+    stakingProgram,
+    lootboxProgram,
+    switchboardProgram,
+  }
 
   return (
     <WorkspaceContext.Provider value={workspace}>
@@ -76,7 +72,7 @@ const WorkspaceProvider = ({ children }: any) => {
   )
 }
 
-const useWorkspace = (): Workspace => {
+const useWorkspace = (): WorkSpace => {
   return useContext(WorkspaceContext)
 }
 
