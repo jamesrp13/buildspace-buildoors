@@ -15,8 +15,12 @@ import { useEffect, useState } from "react"
 import { ItemBox } from "../components/ItemBox"
 import MainLayout from "../components/MainLayout"
 import { StakeOptionsDisplay } from "../components/StakeOptionsDisplay"
+import { useRouter } from "next/router"
 
-const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
+const Stake: NextPage = () => {
+  const router = useRouter()
+  const [mint, setMint] = useState(new PublicKey(router.query.mint as string))
+  const [imageSrc, setImageSrc] = useState(router.query.imageSrc as string)
   const [isStaking, setIsStaking] = useState(false)
   const [level, setLevel] = useState(1)
   const [nftData, setNftData] = useState<any>()
@@ -113,24 +117,6 @@ const Stake: NextPage<StakeProps> = ({ mint, imageSrc }) => {
       </VStack>
     </MainLayout>
   )
-}
-
-interface StakeProps {
-  mint: PublicKey
-  imageSrc: string
-}
-
-Stake.getInitialProps = async ({ query }: any) => {
-  const { mint, imageSrc } = query
-
-  if (!mint || !imageSrc) throw { error: "no mint" }
-
-  try {
-    const mintPubkey = new PublicKey(mint)
-    return { mint: mintPubkey, imageSrc: imageSrc }
-  } catch {
-    throw { error: "invalid mint" }
-  }
 }
 
 export default Stake

@@ -22,7 +22,9 @@ import { PublicKey } from "@solana/web3.js"
 import { Metaplex, walletAdapterIdentity } from "@metaplex-foundation/js"
 import { useRouter } from "next/router"
 
-const NewMint: NextPage<NewMintProps> = ({ mint }) => {
+const NewMint: NextPage = () => {
+  const router = useRouter()
+  const [mint, setMint] = useState(new PublicKey(router.query.mint as string))
   const [metadata, setMetadata] = useState<any>()
   const { connection } = useConnection()
   const walletAdapter = useWallet()
@@ -43,8 +45,6 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
           })
       })
   }, [mint, metaplex, walletAdapter])
-
-  const router = useRouter()
 
   const handleClick: MouseEventHandler<HTMLButtonElement> = useCallback(
     async (event) => {
@@ -85,23 +85,6 @@ const NewMint: NextPage<NewMintProps> = ({ mint }) => {
       </VStack>
     </MainLayout>
   )
-}
-
-interface NewMintProps {
-  mint: PublicKey
-}
-
-NewMint.getInitialProps = async ({ query }) => {
-  const { mint } = query
-
-  if (!mint) throw { error: "no mint" }
-
-  try {
-    const mintPubkey = new PublicKey(mint)
-    return { mint: mintPubkey }
-  } catch {
-    throw { error: "invalid mint" }
-  }
 }
 
 export default NewMint
