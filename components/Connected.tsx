@@ -65,6 +65,7 @@ const Connected: FC = () => {
       if (nft) {
         const metadata = await (await fetch(nft.uri)).json()
         router.push(
+          // @ts-ignore
           `/stake?mint=${nft.mintAddress}&imageSrc=${metadata?.image}`
         )
       }
