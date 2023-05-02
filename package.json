@@ -10,6 +10,9 @@
     "reset-candy-machine": "rm tokens/candy-machine/cache.json; cd tokens/candy-machine && sugar launch -r https://api.devnet.solana.com",
     "create-bld-token": "ts-node tokens/bld/index.ts"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@chakra-ui/icons": "^2.0.9",
     "@chakra-ui/react": "^2.2.9",
